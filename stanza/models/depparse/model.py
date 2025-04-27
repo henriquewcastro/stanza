@@ -229,8 +229,6 @@ class Parser(nn.Module):
         diag = torch.eye(head.size(-1)+1, dtype=torch.bool, device=head.device).unsqueeze(0)
         unlabeled_scores.masked_fill_(diag, -float('inf'))
 
-        preds = []
-
         if self.training:
             unlabeled_scores = unlabeled_scores[:, 1:, :] # exclude attachment for the root symbol
             unlabeled_scores = unlabeled_scores.masked_fill(word_mask.unsqueeze(1), -float('inf'))
@@ -259,7 +257,7 @@ class Parser(nn.Module):
             loss /= wordchars.size(0) # number of words
         else:
             loss = 0
-            preds.append(F.log_softmax(unlabeled_scores, 2).detach().cpu().numpy())
-            preds.append(deprel_scores.max(3)[1].detach().cpu().numpy())
+            unlabeled_probs = F.softmax(unlabeled_scores, 2).detach().cpu().numpy()
+            deprel_preds = deprel_scores.max(3)[1].detach().cpu().numpy()
 
-        return loss, preds
+        return loss, unlabeled_probs, deprel_preds

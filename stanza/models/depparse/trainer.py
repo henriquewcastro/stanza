@@ -139,21 +139,37 @@ class Trainer(BaseTrainer):
             scheduler.step()
         return loss_val
 
-    def predict(self, batch, unsort=True):
+def predict(self, batch, unsort=True):
         device = next(self.model.parameters()).device
         inputs, orig_idx, word_orig_idx, sentlens, wordlens, text = unpack_batch(batch, device)
         word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, lemma, head, deprel = inputs
 
         self.model.eval()
-        batch_size = word.size(0)
-        _, preds = self.model(word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, lemma, head, deprel, word_orig_idx, sentlens, wordlens, text)
-        head_seqs = [chuliu_edmonds_one_root(adj[:l, :l])[1:] for adj, l in zip(preds[0], sentlens)] # remove attachment for the root
-        deprel_seqs = [self.vocab['deprel'].unmap([preds[1][i][j+1][h] for j, h in enumerate(hs)]) for i, hs in enumerate(head_seqs)]
+        batchsize = word.size(0)
+        _, unlabeled_probabilities, deprel_preds = self.model(word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, lemma, head, deprel, word_orig_idx, sentlens, wordlens, text)
 
-        pred_tokens = [[[str(head_seqs[i][j]), deprel_seqs[i][j]] for j in range(sentlens[i]-1)] for i in range(batch_size)]
+        head_seqs = [chuliu_edmonds_one_root(adj[:l, :l])[1:] for adj, l in zip(unlabeled_probabilities, sentlens)]
+        deprel_seqs = [self.vocab['deprel'].unmap([deprel_preds[i][j+1][h] for j, h in enumerate(hs)]) for i, hs in enumerate(head_seqs)]
+
+        output = []
+        for i in range(batch_size):
+            sentence_output = []
+            for j in range(sentlens[i] - 1):
+                head_index = int(head_seqs[i][j])
+                deprel_label = deprel_seqs[i][j]
+                probabilities = unlabeled_probabilities[i][j + 1].tolist()
+
+                sentence_output.append({
+                    'head': head_index,
+                    'deprel': deprel_label,
+                    'probabilities': probabilities
+                })
+            output.append(sentence_output)
+
         if unsort:
-            pred_tokens = utils.unsort(pred_tokens, orig_idx)
-        return pred_tokens
+            output = utils.unsort(output, orig_idx)
+
+        return output
 
     def save(self, filename, skip_modules=True, save_optimizer=False):
         model_state = self.model.state_dict()

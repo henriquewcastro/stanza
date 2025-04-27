@@ -65,11 +65,30 @@ class DepparseProcessor(UDProcessor):
                     preds += self.trainer.predict(b)
             if batch.data_orig_idx is not None:
                 preds = unsort(preds, batch.data_orig_idx)
-            batch.doc.set((doc.HEAD, doc.DEPREL), [y for x in preds for y in x])
-            # build dependencies based on predictions
-            for sentence in batch.doc.sentences:
-                sentence.build_dependencies()
-            return batch.doc
+            
+            processed_sentences = []
+            for sentence_index, sentence in enumerate(batch.doc.sentences):
+                processed_words = []
+                for i, word in enumerate(sentence.words):
+                    predict = preds[sentence_index][i]
+
+                    word_info = {
+                        'id': word.id,
+                        'text': word.text,
+                        'lemma': word.lemma,
+                        'upos': word.upos,
+                        'feats': word.feats,
+                        'head': predict['head'],
+                        'deprel': predict['deprel'],
+                        'start_char': word.start_char,
+                        'end_char': word.end_char,
+                        'probabilities': predict['probabilities']
+                    }
+                    processed_words.append(word_info)
+                processed_sentences.append(processed_words)
+            
+            return processed_sentences
+
         except RuntimeError as e:
             if str(e).startswith("CUDA out of memory. Tried to allocate"):
                 new_message = str(e) + " ... You may be able to compensate for this by separating long sentences into their own batch with a parameter such as depparse_min_length_to_batch_separately=150 or by limiting the overall batch size with depparse_batch_size=400."
