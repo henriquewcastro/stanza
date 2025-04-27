@@ -152,7 +152,7 @@ class Trainer(BaseTrainer):
         deprel_seqs = [self.vocab['deprel'].unmap([deprel_preds[i][j+1][h] for j, h in enumerate(hs)]) for i, hs in enumerate(head_seqs)]
 
         output = []
-        for i in range(batch_size):
+        for i in range(batchsize):
             sentence_output = []
             for j in range(sentlens[i] - 1):
                 head_index = int(head_seqs[i][j])
