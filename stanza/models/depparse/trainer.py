@@ -139,7 +139,7 @@ class Trainer(BaseTrainer):
             scheduler.step()
         return loss_val
 
-def predict(self, batch, unsort=True):
+    def predict(self, batch, unsort=True):
         device = next(self.model.parameters()).device
         inputs, orig_idx, word_orig_idx, sentlens, wordlens, text = unpack_batch(batch, device)
         word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, lemma, head, deprel = inputs
